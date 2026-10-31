@@ -2,7 +2,7 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import { connectToDatabase } from "./src/config/mongodb.js";
-
+import router from "./src/routes/events.js";
 dotenv.config();
 
 const app = express();
@@ -11,6 +11,7 @@ const PORT = process.env.PORT || 5000;
 app.use(cors());
 app.use(express.json());
 
+app.use("/api/events", router);
 
 app.get("/", (req, res) => {
   res.json({ message: "Express server is running!" });
@@ -59,5 +60,4 @@ async function startServer() {
     process.exit(1);
   }
 }
-
 startServer();
