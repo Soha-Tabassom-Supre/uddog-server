@@ -1,8 +1,11 @@
+
 import { Router } from "express";
 import { connectToDatabase } from "../config/mongodb.js";
 import { ObjectId } from "mongodb";
+import { requireAuth } from "../middleware/requireAuth.js";
 
 const router = Router();
+
 
 router.get("/", async (req, res) => {
   try {
@@ -60,14 +63,14 @@ router.get("/featured", async (req, res) => {
   }
 });
 
-router.get("/my-events", async (req, res) => {
+router.get("/my-events", requireAuth, async (req, res) => {
   try {
     const db = await connectToDatabase();
 
     const events = await db
       .collection("events")
       .find({
-        creatorId: "temporary-test-user",
+        creatorId: req.user.id,
       })
       .sort({ createdAt: -1 })
       .toArray();
@@ -125,7 +128,8 @@ router.get("/:id", async (req, res) => {
   }
 });
 
-router.post("/", async (req, res) => {
+
+router.post("/", requireAuth, async (req, res) => {
   try {
     const { title, description, category, imageUrl, location, eventDate } =
       req.body;
@@ -181,7 +185,6 @@ router.post("/", async (req, res) => {
       });
     }
 
-    
     const db = await connectToDatabase();
 
     const newEvent = {
@@ -191,7 +194,7 @@ router.post("/", async (req, res) => {
       imageUrl: imageUrl.trim(),
       location: location.trim(),
       eventDate: parsedEventDate,
-      creatorId: "temporary-test-user",
+      creatorId: req.user.id,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -216,7 +219,7 @@ router.post("/", async (req, res) => {
   }
 });
 
-router.patch("/:id", async (req, res) => {
+router.patch("/:id", requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -276,7 +279,10 @@ router.patch("/:id", async (req, res) => {
       try {
         const parsedUrl = new URL(imageUrl);
 
-        if (parsedUrl.protocol !== "https:" && parsedUrl.protocol !== "http:") {
+        if (
+          parsedUrl.protocol !== "https:" &&
+          parsedUrl.protocol !== "http:"
+        ) {
           throw new Error("Invalid URL protocol");
         }
       } catch {
@@ -329,21 +335,39 @@ router.patch("/:id", async (req, res) => {
 
     updates.updatedAt = new Date();
 
-   
     const db = await connectToDatabase();
+    const collection = db.collection("events");
 
-    const result = await db
-      .collection("events")
-      .updateOne({ _id: new ObjectId(id) }, { $set: updates });
+    
+    const result = await collection.updateOne(
+      {
+        _id: new ObjectId(id),
+        creatorId: req.user.id,
+      },
+      {
+        $set: updates,
+      },
+    );
 
     if (result.matchedCount === 0) {
-      return res.status(404).json({
+      const eventExists = await collection.findOne({
+        _id: new ObjectId(id),
+      });
+
+      if (!eventExists) {
+        return res.status(404).json({
+          success: false,
+          message: "Event not found.",
+        });
+      }
+
+      return res.status(403).json({
         success: false,
-        message: "Event not found.",
+        message: "You are not allowed to update this event.",
       });
     }
 
-    const updatedEvent = await db.collection("events").findOne({
+    const updatedEvent = await collection.findOne({
       _id: new ObjectId(id),
     });
 
@@ -362,8 +386,7 @@ router.patch("/:id", async (req, res) => {
   }
 });
 
-
-router.delete("/:id", async (req, res) => {
+router.delete("/:id", requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -375,20 +398,32 @@ router.delete("/:id", async (req, res) => {
     }
 
     const db = await connectToDatabase();
+    const collection = db.collection("events");
 
-    const result = await db.collection("events").deleteOne({
+    
+    const result = await collection.deleteOne({
       _id: new ObjectId(id),
+      creatorId: req.user.id,
     });
 
-  
     if (result.deletedCount === 0) {
-      return res.status(404).json({
+      const eventExists = await collection.findOne({
+        _id: new ObjectId(id),
+      });
+
+      if (!eventExists) {
+        return res.status(404).json({
+          success: false,
+          message: "Event not found.",
+        });
+      }
+
+      return res.status(403).json({
         success: false,
-        message: "Event not found.",
+        message: "You are not allowed to delete this event.",
       });
     }
 
-   
     res.status(200).json({
       success: true,
       message: "Event deleted successfully.",
