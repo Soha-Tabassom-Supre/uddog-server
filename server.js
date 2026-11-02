@@ -3,12 +3,24 @@ import cors from "cors";
 import dotenv from "dotenv";
 import { connectToDatabase } from "./src/config/mongodb.js";
 import router from "./src/routes/events.js";
+import { requireAuth } from "./src/middleware/requireAuth.js";
+
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-app.use(cors());
+
+app.use(
+  cors({
+    origin: "http://localhost:3000",
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+  }),
+);
+
+
 app.use(express.json());
 
 app.use("/api/events", router);
@@ -29,7 +41,6 @@ app.get("/api/health", (req, res) => {
 app.get("/api/db-test", async (req, res) => {
   try {
     const db = await connectToDatabase();
-
     await db.command({ ping: 1 });
 
     res.status(200).json({
@@ -48,6 +59,15 @@ app.get("/api/db-test", async (req, res) => {
 });
 
 
+app.get("/api/auth-test", requireAuth, (req, res) => {
+  res.json({
+    success: true,
+    message: "Authentication successful",
+    user: req.user,
+  });
+});
+
+
 async function startServer() {
   try {
     await connectToDatabase();
@@ -60,4 +80,5 @@ async function startServer() {
     process.exit(1);
   }
 }
+
 startServer();
