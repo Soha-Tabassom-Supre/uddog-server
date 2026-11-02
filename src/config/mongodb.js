@@ -1,4 +1,3 @@
-
 import { MongoClient } from "mongodb";
 import dotenv from "dotenv";
 
@@ -18,17 +17,29 @@ if (!dbName) {
 const client = new MongoClient(uri);
 
 let database;
+let connectionPromise;
 
 export async function connectToDatabase() {
   if (database) {
     return database;
   }
 
-  await client.connect();
+  if (!connectionPromise) {
+    connectionPromise = client
+      .connect()
+      .then((connectedClient) => {
+        database = connectedClient.db(dbName);
 
-  database = client.db(dbName);
+        console.log(`MongoDB connected successfully: ${dbName}`);
 
-  console.log(`MongoDB connected successfully: ${dbName}`);
+        return database;
+      })
+      .catch((error) => {
 
-  return database;
+        connectionPromise = undefined;
+        throw error;
+      });
+  }
+
+  return connectionPromise;
 }
