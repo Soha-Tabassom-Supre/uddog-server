@@ -4,7 +4,7 @@ import dotenv from "dotenv";
 dotenv.config();
 
 const uri = process.env.MONGODB_URI;
-const dbName = process.env.DB_NAME;
+const dbName = process.env.DB_Name;
 
 if (!uri) {
   throw new Error("MONGODB_URI is missing from .env");
