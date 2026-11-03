@@ -4,7 +4,7 @@
 
 Uddog (উদ্যোগ) is a community-driven social development and event management platform that encourages people to participate in meaningful activities and create positive changes in their communities.
 
-This repository contains the backend REST API for Uddog. It is built with Express.js and MongoDB and uses Better Auth JWT authentication to protect authorized API routes.
+This repository contains the backend REST API for Uddog, built with Express.js and MongoDB. It handles event management, event registrations, and authenticated user operations.
 
 ## 🚀 Live Demo
 
@@ -15,15 +15,19 @@ This repository contains the backend REST API for Uddog. It is built with Expres
 ## ✨ Features
 
 - RESTful API built with Express.js.
-- MongoDB integration for data storage.
-- Event retrieval and management endpoints.
-- Upcoming events retrieval with date-based filtering.
-- Featured events retrieval.
-- Individual event details using event IDs.
-- Better Auth JWT-based authentication for protected routes.
-- JWT verification using JOSE.
-- CORS configuration for frontend-backend communication.
-- Environment-based configuration.
+- MongoDB integration for persistent data storage.
+- Retrieve upcoming events sorted by event date.
+- Retrieve featured upcoming events.
+- Create, update, and delete events.
+- View events created by the authenticated user.
+- Register for upcoming events.
+- Cancel event registrations.
+- View events joined by the authenticated user.
+- Prevent duplicate event registrations.
+- Validate event data, dates, locations, and image URLs.
+- Verify authentication using Better Auth JWT and JOSE.
+- Restrict event modifications to their creators.
+- Automatically remove registrations when an event is deleted.
 
 ## 🛠️ Technology Stack
 
@@ -43,6 +47,9 @@ uddog-server/
 │   ├── config/
 │   │   └── mongodb.js
 │   │
+│   ├── middleware/
+│   │   └── requireAuth.js
+│   │
 │   ├── routes/
 │   │   └── events.js
 │   │
@@ -55,8 +62,6 @@ uddog-server/
 
 
 ## ⚙️ Installation & Setup
-
-Follow these steps to run the backend locally.
 
 ### 1. Clone the Repository
 
@@ -89,7 +94,7 @@ BETTER_AUTH_URL=http://localhost:3000
 
 Replace the placeholder values with your actual configuration.
 
-**Important:** Never commit your `.env` file or expose database credentials and authentication secrets in your repository.
+**Important:** Never commit your `.env` file or expose database credentials or authentication secrets in your repository.
 
 ### 5. Run the Server
 
@@ -97,87 +102,183 @@ Replace the placeholder values with your actual configuration.
 npm start
 
 
-The backend should now be running at:
+The backend should be available at:
 
 
 http://localhost:5000
 
 
-## 🔗 API Endpoints
+## 🔗 API Documentation
 
-The following endpoints are currently available:
+The backend provides the following event management endpoints.
+
+**Base URL (Local):**
+
+
+http://localhost:5000/api/events
+
+
+**Base URL (Production):**
+
+
+https://uddog-server.onrender.com/api/events
+
+
+### Event Endpoints
 
 | Method | Endpoint | Description | Authentication |
 |---|---|---|---|
-| GET | `/` | Check the server response | No |
-| GET | `/api/health` | Check server health | No |
 | GET | `/api/events` | Retrieve upcoming events | No |
-| GET | `/api/events/featured` | Retrieve featured events | No |
-| GET | `/api/events/:id` | Retrieve a specific event by ID | No |
+| GET | `/api/events/featured` | Retrieve up to 6 featured upcoming events | No |
+| GET | `/api/events/my-events` | Retrieve events created by the current user | Required |
+| GET | `/api/events/joined` | Retrieve events joined by the current user | Required |
+| GET | `/api/events/:id` | Retrieve a specific event | No |
+| POST | `/api/events` | Create a new event | Required |
+| PATCH | `/api/events/:id` | Update an existing event | Required |
+| DELETE | `/api/events/:id` | Delete an event | Required |
 
-### Example Requests
+### Event Registration Endpoints
 
-**Get Upcoming Events**
+| Method | Endpoint | Description | Authentication |
+|---|---|---|---|
+| POST | `/api/events/:id/register` | Register for an event | Required |
+| DELETE | `/api/events/:id/register` | Cancel event registration | Required |
 
-GET /api/events
+### Creating an Event
 
-
-**Get Featured Events**
-
-
-GET /api/events/featured
-
-
-**Get Event Details**
-
-
-GET /api/events/:id
+**Endpoint:**
 
 
-**Check Server Health**
+POST /api/events
 
 
-GET /api/health
+**Request Body:**
 
-## 🔐 Authentication
 
-Uddog uses Better Auth for authentication on the frontend.
+{
+  "title": "Community Clean-up Day",
+  "description": "Join us to make our community cleaner.",
+  "category": "Environment",
+  "imageUrl": "https://example.com/event-image.jpg",
+  "location": {
+    "division": "Khulna",
+    "city": "Jashore",
+    "area": "Sadar",
+    "address": "Example location"
+  },
+  "eventDate": "2027-01-15T09:00:00.000Z"
+}
 
-The backend verifies JWT tokens issued through Better Auth before allowing access to protected API routes.
 
-The authentication flow works as follows:
+The event date must be in the future, and all required fields must contain valid values.
 
-1. A user authenticates through the frontend using Better Auth.
-2. Better Auth issues a JWT token.
-3. The frontend includes the token when making requests to protected backend endpoints.
+### Updating an Event
+
+**Endpoint:**
+
+
+PATCH /api/events/:id
+
+
+Allows the event creator to update valid event fields.
+
+Only the event creator can update their event.
+
+### Deleting an Event
+
+**Endpoint:**
+
+
+DELETE /api/events/:id
+
+
+Only the event creator can delete an event.
+
+Associated event registrations are also removed when the event is deleted.
+
+### Registering for an Event
+
+**Endpoint:**
+
+
+POST /api/events/:id/register
+
+
+An authenticated user can register for an upcoming event.
+
+The API prevents duplicate registrations and updates the event's participant count.
+
+### Cancelling Registration
+
+**Endpoint:**
+
+
+DELETE /api/events/:id/register
+
+
+Allows an authenticated user to cancel their registration. The participant count is updated accordingly.
+
+## 🔐 Authentication & Authorization
+
+Uddog uses Better Auth for frontend authentication and JWT-based authentication for backend API protection.
+
+The backend uses JOSE to verify JWT tokens through the Better Auth JWKS endpoint.
+
+The authentication process works as follows:
+
+1. Users authenticate through the frontend using Better Auth.
+2. Better Auth provides a JWT token.
+3. The frontend sends the token with requests to protected API endpoints.
 4. The backend verifies the token using JOSE and the Better Auth JWKS endpoint.
-5. If the token is valid, the request is allowed to continue.
-6. If authentication is missing or invalid, the backend rejects the request.
+5. If the token is valid, the authenticated user's information is attached to the request.
+6. Protected routes allow the request to continue.
+
+The backend also checks event ownership before allowing users to update or delete events.
 
 ## 🗄️ Database
 
-Uddog uses MongoDB as its database.
+Uddog uses MongoDB for data storage.
 
-The MongoDB connection is configured separately and uses environment variables to manage the database connection securely.
+The backend works with the following collections:
 
-The database name is configurable through the `DB_NAME` environment variable.
+- **events:** Stores event information, creator details, event dates, locations, and participant counts.
+- **eventRegistrations:** Stores event registration records, including event IDs, user IDs, and registration timestamps.
+
+The MongoDB connection is managed through a dedicated configuration module.
+
+## ⚠️ Error Handling & Validation
+
+The API includes validation and error handling for common situations, including:
+
+- Invalid event IDs.
+- Missing or invalid event information.
+- Invalid image URLs.
+- Invalid or past event dates.
+- Events that do not exist.
+- Duplicate event registrations.
+- Unauthorized event modifications.
+- Missing authentication.
+- Database or server errors.
+
+Appropriate HTTP status codes are returned to indicate the result of each request.
 
 ## 🌐 Deployment
 
 The backend is deployed on Render.
 
-**Live Backend:** [https://uddog-server.onrender.com](https://uddog-server.onrender.com)
+**Production URL:** [https://uddog-server.onrender.com](https://uddog-server.onrender.com)
 
 Deployment configuration:
 
 - **Build Command:** `npm install`
 - **Start Command:** `npm start`
 
-Make sure to configure the required environment variables in the Render dashboard before deploying.
+Configure all required environment variables in the Render dashboard before deployment.
 
 ## 🔗 Related Repository
 
-Frontend repository: [Uddog Client](https://github.com/Soha-Tabassom-Supre/uddog-client)
+- **Frontend:** [Uddog Client](https://github.com/Soha-Tabassom-Supre/uddog-client)
+
 
 
 Developed as part of a Social Development Events Platform project.
