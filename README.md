@@ -38,27 +38,6 @@ This repository contains the backend REST API for Uddog, built with Express.js a
 - **JWT Verification:** JOSE
 - **Deployment:** Render
 
-## 📁 Project Structure
-
-
-uddog-server/
-│
-├── src/
-│   ├── config/
-│   │   └── mongodb.js
-│   │
-│   ├── middleware/
-│   │   └── requireAuth.js
-│   │
-│   ├── routes/
-│   │   └── events.js
-│   │
-│   └── ...
-│
-├── .env
-├── .gitignore
-├── package.json
-└── README.md
 
 
 ## ⚙️ Installation & Setup
@@ -88,7 +67,7 @@ Create a `.env` file in the root directory.
 .env
 PORT=5000
 MONGODB_URI=your_mongodb_connection_string
-DB_NAME=uddog
+DB_Name=uddog
 BETTER_AUTH_URL=http://localhost:3000
 
 
